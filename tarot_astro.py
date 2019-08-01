@@ -14,7 +14,7 @@
 # You need to install locally astrometry.net and to download following indeces files: index-4204-*.fits
 # This version uses Heasoft ftcopy command
 
-
+#baf
 
 import subprocess, sys, os
 from astropy.io import fits
