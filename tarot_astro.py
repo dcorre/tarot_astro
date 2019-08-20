@@ -19,50 +19,40 @@ from astropy.io import fits
 import shutil
 
 
-def cut_tarot(filename):
+def cut_tarot(filename, Nb_cuts=(2,2)):
     
-    extension1 = filename + "[1:1024,1:1024]"
-    fileout1 = "D1_" + filename
-    extension2 = filename + "[1:1024,1025:2048]"
-    fileout2 = "D2_" + filename
-    extension3 = filename + "[1025:2048,1:1024]"
-    fileout3 = "D3_" + filename
-    extension4 = filename + "[1025:2048,1025:2048]"
-    fileout4 = "D4_" + filename
-    
-    shutil.copyfile(filename, fileout1)
-    shutil.copyfile(filename, fileout2)
-    shutil.copyfile(filename, fileout3)
-    shutil.copyfile(filename, fileout4)
-    
-    hdul = fits.open(fileout1)
-    fulltable = hdul[0].data
-    subtable1 = fulltable[0:1023,0:1023]
-    hdul[0].data = subtable1
-    hdul.writeto(fileout1,overwrite=True)
-    hdul.close()
- 
-    hdul = fits.open(fileout2)
-    fulltable = hdul[0].data
-    subtable2 = fulltable[0:1023,1024:2047]
-    hdul[0].data = subtable2
-    hdul.writeto(fileout2,overwrite=True)
-    hdul.close()
+    header = fits.getheader(filename)
+    Naxis1 = header['NAXIS1']
+    Naxis2 = header['NAXIS2']
+    Naxis11 = int(Naxis1/Nb_cuts[0])
+    Naxis22 = int(Naxis2/Nb_cuts[1])
 
-    hdul = fits.open(fileout3)
-    fulltable = hdul[0].data
-    subtable3 = fulltable[1024:2047,0:1023]
-    hdul[0].data = subtable3
-    hdul.writeto(fileout3,overwrite=True)
-    hdul.close()
+    index=0
+    for i in range(Nb_cuts[0]):
+        for j in range(Nb_cuts[1]):
+            index+=1
+            if i == 0 :
+                x1 = 1
+            else:
+                x1 = Naxis11 * i + 1
+            if j == 0 :
+                y1 = 1
+            else:
+                y1 = Naxis22 * j + 1
+            x2 = Naxis11 * (i+1)
+            y2 = Naxis22 * (j+1)
+            
+            extension = filename + "[%d:%d,%d:%d]" % (x1,x2, y1,y2)
+            filename_out = "D%d_" % (index) + filename
 
-    hdul = fits.open(fileout4)
-    fulltable = hdul[0].data
-    subtable4 = fulltable[1024:2047,1024:2047]
-    hdul[0].data = subtable4
-    hdul.writeto(fileout4,overwrite=True)
-    hdul.close()
-    
+            shutil.copyfile(filename, filename_out)
+            hdul = fits.open(filename_out)
+            fulltable = hdul[0].data
+            subtable = fulltable[x1-1:x2-1,y1-1:y2-1]
+            hdul[0].data = subtable
+            hdul.writeto(filename_out,overwrite=True)
+            hdul.close()
+
     #subprocess.call(['ftcopy',extension1,fileout1,'clobber=yes'])
     #subprocess.call(['ftcopy',extension2,fileout2,'clobber=yes'])
     #subprocess.call(['ftcopy',extension3,fileout3,'clobber=yes'])
@@ -105,23 +95,21 @@ def perform_astrometry(filename):
 
     erase_astrometry_header(filename)
 
-    subprocess.call(['solve-field', filename, '--ra', ra, '--dec', dec, '--radius', '1', '--scale-units', 'degwidth', '--scale-low', '0.8', '--scale-high', '1.2', '--no-plots','--overwrite'])
+    subprocess.call(['solve-field', filename, '--ra', ra, '--dec', dec, '--radius', '2', '--scale-units', 'degwidth', '--scale-low', '0.8', '--scale-high', '1.2', '--no-plots','--overwrite'])
     clean_astrometry_temp_files(filename)
     
 
 if __name__ == "__main__":
-    
+    Nb_cuts = (2,2) 
     filename_argument = sys.argv[1]
-    cut_tarot(filename_argument)
+    cut_tarot(filename_argument, Nb_cuts = Nb_cuts)
+
+    index = 0
+    for i in range(Nb_cuts[0]):
+        for j in range(Nb_cuts[1]):
+                index+=1
+                filein = "D%d_" % (index) + filename_argument
     
-    filein1 = "D1_" + filename_argument
-    filein2 = "D2_" + filename_argument
-    filein3 = "D3_" + filename_argument
-    filein4 = "D4_" + filename_argument
-    
-    perform_astrometry(filein1)
-    perform_astrometry(filein2)
-    perform_astrometry(filein3)
-    perform_astrometry(filein4)
+                perform_astrometry(filein)
     
 
